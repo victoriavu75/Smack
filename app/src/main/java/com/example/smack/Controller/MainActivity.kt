@@ -23,6 +23,7 @@ import androidx.appcompat.widget.Toolbar
 import androidx.core.view.GravityCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.example.smack.Model.Channel
+import com.example.smack.Model.Message
 import com.example.smack.R
 import com.example.smack.R.id
 import com.example.smack.Services.AuthService
@@ -77,6 +78,7 @@ class MainActivity : AppCompatActivity() {
 
         socket.connect()
         socket.on("channelCreated", onNewChannel)
+        socket.on("messageCreated", onNewMessage)
 
     }
 
@@ -182,8 +184,32 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private val onNewMessage = Emitter.Listener { args ->
+        //need to switch to UI thread to make changes to UI
+        runOnUiThread{
+            val msgBody = args[0] as String
+            val channelId = args[2] as String
+            val userName = args[3] as String
+            val userAvatar = args[4] as String
+            val userAvatarColor = args[5] as String
+            val id = args[6] as String
+            val timeStamp = args[7] as String
+
+            val newMessage = Message(msgBody, channelId, userName, userAvatar, userAvatarColor, id, timeStamp)
+            MessageService.messages.add(newMessage)
+
+        }
+    }
+
     fun sendMsgBtnClicked(view: View){
-        hideKeyboard()
+        if(App.prefs.isLoggedIn && msgTextField.text.isNotEmpty() && selectedChannel != null){
+            val userId = UserDataService.id
+            val channelId = selectedChannel!!.id
+            socket.emit("newMessage", msgTextField.text.toString(), userId, channelId,
+            UserDataService.name, UserDataService.avatarName, UserDataService.avatarColor)
+            msgTextField.text.clear()
+            hideKeyboard()
+        }
     }
 
     fun hideKeyboard(){
